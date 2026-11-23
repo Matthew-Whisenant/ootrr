@@ -48,7 +48,7 @@ use crate::world::{LocId, World};
 
 pub const BOSS_OK: [&str; 7] = ["remove", "vanilla", "dungeon", "regional", "overworld", "any_dungeon", "keysanity"];
 pub const MAP_OK: [&str; 7] = ["remove", "startwith", "vanilla", "dungeon", "regional", "any_dungeon", "keysanity"];
-pub const GANON_OK: [&str; 8] = ["remove", "vanilla", "dungeon", "regional", "overworld", "any_dungeon", "keysanity", crate::lacs_key::VALUE];
+pub const GANON_OK: [&str; 9] = ["remove", "vanilla", "dungeon", "regional", "overworld", "any_dungeon", "keysanity", crate::lacs_key::VALUE, crate::medal_gate::LACS_MEDALLIONS_VALUE];
 
 pub const BOSS_DUNGEONS: [&str; 5] = ["ForestTemple", "FireTemple", "WaterTemple", "ShadowTemple", "SpiritTemple"];
 pub const GANON: &str = "InsideGanonCastle";
@@ -125,7 +125,7 @@ pub fn keep_value(v: &str) -> Keep {
         "keysanity" => Keep::Anywhere,
         "overworld" => Keep::Overworld,
         "regional" => Keep::Regional,
-        crate::lacs_key::VALUE => Keep::Lacs,
+        crate::lacs_key::VALUE | crate::medal_gate::LACS_MEDALLIONS_VALUE => Keep::Lacs,
         _ => Keep::Start,
     }
 }
@@ -274,7 +274,7 @@ pub fn grants(d: &Data, seed: &SeedFile, p: &Plan) -> Res<Grants> {
     let mut wrapped: std::collections::BTreeSet<u64> = std::collections::BTreeSet::new();
     for (loc, item) in &seed.placements {
         // Gift scenes give dungeon items through their own scene edit (crate::gift_keys).
-        if crate::gift_keys::spot(d, loc) {
+        if crate::gift_keys::spot(d, loc) || crate::dungeon_packs::handed(d, loc, item) {
             continue;
         }
         let Some(i) = d.item(item) else {
@@ -430,7 +430,7 @@ mod tests {
         assert!(f.iter().all(|(_, v)| *v));
         assert!(f.iter().any(|(n, _)| n == "DungeonInfo.InsideGanonCastle.IsGetBossKey"));
         assert!(f.iter().any(|(n, _)| n == "DungeonInfo.IceCavern.IsGetCompass"));
-        assert!(p.start_flags().len() == 26);
+        assert!(p.start_flags().len() == 26 + 1);
         let d: Data = Data::load().unwrap();
         assert_eq!(start_items(&d, &p).len(), 6);
         let q: Plan = plan(&with(&[("shuffle_mapcompass", "remove")])).unwrap();
@@ -461,8 +461,10 @@ mod tests {
 
     fn check(d: &Data, s: &Settings, tag: &str, n: usize) -> usize {
         let p: Plan = plan(s).unwrap();
-        let base: Generated = generate_data(d, &Settings::default(), "count base", &GenOpts::default()).unwrap();
-        let (bw, bp): (World, Placement) = full(d, &Settings::default(), &base);
+        let mut vanilla_keys: Settings = Settings::default();
+        vanilla_keys.set("shuffle_smallkeys", crate::settings::Value::s("vanilla")).unwrap();
+        let base: Generated = generate_data(d, &vanilla_keys, "count base", &GenOpts::default()).unwrap();
+        let (bw, bp): (World, Placement) = full(d, &vanilla_keys, &base);
         let want: BM<String, usize> = dungeon_items(&counts(&bw, &bp));
         let mut away: usize = 0;
         for k in 0..n {
@@ -476,6 +478,11 @@ mod tests {
             for l in w.real.iter().filter(|l| !fr.contains(l)) {
                 if let Some(i) = van.get(*l).filter(|i| gone(&w.items.names[*i])) {
                     *kept.entry(w.items.names[i].clone()).or_insert(0) += 1;
+                }
+            }
+            if p.fire_loop_open() && w.loc(crate::slice::support::FIRE_SPARE_KEY).is_some_and(|l| fr.contains(&l)) {
+                if let Some(c) = kept.get_mut("Small Key (Fire Temple)") {
+                    *c -= 1;
                 }
             }
             assert_eq!(dungeon_items(&counts(&w, &pl)), kept, "{tag} {k}");
@@ -505,8 +512,10 @@ mod tests {
                 let Some(i) = d.item(item).filter(|i| Kind::of(&i.kind).is_some_and(|k| gr.sweep.contains(&k))) else {
                     continue;
                 };
-                // A reward event holding a dungeon item (#24) is credited by crate::gift_keys.
-                let Some(c) = d.cat.by_name(loc) else {
+                if d.flow.by_name(loc).is_some() {
+                    continue;
+                }
+                let Some(c) = d.cat.by_name(loc).filter(|_| !crate::dungeon_packs::handed(d, loc, item)) else {
                     continue;
                 };
                 let want: Option<&str> = i.dungeon.as_deref().and_then(struct_of);
@@ -628,14 +637,14 @@ mod tests {
         let out: std::path::PathBuf = b.root.join("romfs");
         let mut rf: crate::romfs::Romfs = crate::romfs::Romfs::open(root).unwrap();
         let mut away: usize = 0;
+        let shared: std::collections::BTreeMap<(String, u64), u64> = crate::slice::copies::shared(&d, &g.seed_file.placements);
         for (loc, item) in &g.seed_file.placements {
             let Some(i) = d.item(item).filter(|i| Kind::of(&i.kind).is_some_and(|k| gr.sweep.contains(&k))) else {
                 continue;
             };
             let k: Kind = Kind::of(&i.kind).unwrap();
             let want: &str = i.dungeon.as_deref().and_then(struct_of).unwrap();
-            // A reward event holding a dungeon item (#24) is credited by crate::gift_keys.
-            let Some(c) = d.cat.by_name(loc) else {
+            let Some(c) = d.cat.by_name(loc).filter(|_| !crate::dungeon_packs::handed(&d, loc, item)) else {
                 continue;
             };
             // A ground, skulltula or boss heart spot stands as the item's own pickup, credited by
@@ -649,7 +658,7 @@ mod tests {
                 for f in &r.files {
                     let old: Byml = Byml::parse(&rf.read_zs(f).unwrap()).unwrap();
                     let new: Byml = Byml::parse(&rf.zs.decompress(&std::fs::read(out.join(f)).unwrap()).unwrap()).unwrap();
-                    let a: &crate::byml::Node = actor(&new, r.hash).unwrap();
+                    let a: &crate::byml::Node = actor(&new, shared.get(&(f.clone(), r.hash)).copied().unwrap_or(r.hash)).unwrap_or_else(|| panic!("{loc}: no chest {} in {f}", r.hash));
                     // The vanilla chest may have no drop field yet (slice::banc::DEFAULT_DROPS).
                     let v: &crate::byml::Node = old.root.get("Actors").and_then(|l| l.as_arr()).and_then(|l| l.iter().find(|a| crate::placement::hash_of(a) == Some(r.hash))).unwrap();
                     let size: Size = Size::of_gyaml(a.get("Gyaml").and_then(|x| x.as_str()).unwrap_or(""));
@@ -675,9 +684,7 @@ mod tests {
                 let Some(i) = d.item(item).filter(|i| Kind::of(&i.kind).is_some_and(|k| gr.sweep.contains(&k))) else {
                     continue;
                 };
-                // A reward event holding a dungeon item (#24) is credited by crate::gift_keys; a
-                // story chest and a pickup spot credit through their own events, not the chest flow.
-                if !d.cat.by_name(loc).is_some_and(|c| c.kind == "chest") || story_chest(&d, loc) {
+                if !d.cat.by_name(loc).is_some_and(|c| c.kind == "chest") || story_chest(&d, loc) || crate::dungeon_packs::handed(&d, loc, item) {
                     continue;
                 }
                 let k: Kind = Kind::of(&i.kind).unwrap();

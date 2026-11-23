@@ -198,7 +198,7 @@ pub(crate) fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<Str
             if new.actor.is_none() {
                 return Err(E::Msg(format!("{item} has no remake item actor and cannot be placed")));
             }
-            let new_actor: String = given.get(loc).cloned().ok_or_else(|| E::Msg(format!("{loc} was given no item actor")))?;
+            let new_actor: String = fixed.get(loc).or_else(|| given.get(loc)).cloned().ok_or_else(|| E::Msg(format!("{loc} was given no item actor")))?;
             if new_actor == l.item {
                 same += 1;
                 continue;
@@ -244,7 +244,8 @@ pub(crate) fn targets_with(d: &Data, seed: &SeedFile, roam: bool, fixed: &BM<Str
         }
         let family: Option<&'static str> = d
             .family(item)
-            .filter(|f| !needs_every_holder(f) || d.holders(f).iter().all(|h| seed.placements.contains_key(*h) || d.wrappable(h)));
+            .filter(|f| !needs_every_holder(f) || d.holders(f).iter().all(|h| seed.placements.contains_key(*h) || d.wrappable(h)))
+            .filter(|_| loc != crate::slice::treasure::LOC);
         let new_actor: String = match family {
             // The chest raises its drop actor, so it holds the tier the player most likely gets
             // there (tier_order::chest_views); the chain grants the right tier either way.

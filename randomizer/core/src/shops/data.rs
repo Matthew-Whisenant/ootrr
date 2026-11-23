@@ -221,8 +221,8 @@ mod tests {
         let t: &Table = table().unwrap();
         assert_eq!(t.shops.len(), 8);
         assert_eq!(t.slots.len(), 64);
-        assert!(is_loc("KF Shop Item 1"));
-        assert!(is_loc("ZD Shop Item 8"));
+        assert!(is_loc("KF Shop Right Side Bottom Left"));
+        assert!(is_loc("ZD Shop Left Side Top Left"));
         assert!(!is_loc("Market Mask Shop Item 1"));
         assert!(!is_loc("KF Shop Wonderitem"));
         let units: std::collections::BTreeSet<String> = t.slots.iter().map(|s| t.unit(s)).collect();
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn broken_tables_are_refused() {
         assert!(parse("{\"format\":2}").is_err());
-        let short: String = SHOPS_JSON.replacen("\"deal_order\": [5, 4, 0, 1, 3, 6, 7, 2]", "\"deal_order\": [6, 0]", 1);
+        let short: String = SHOPS_JSON.replacen("\"deal_order\": [4, 5, 6, 7, 0, 1, 2, 3]", "\"deal_order\": [6, 0]", 1);
         assert!(parse(&short).is_err());
     }
 }

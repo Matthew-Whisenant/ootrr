@@ -782,7 +782,7 @@ mod tests {
             chests += ok as usize;
         }
         assert!(chests > 100, "{chests}");
-        for n in ["Song from Impa", "Kak Impas House Cow", "KF Shop Item 1", "Queen Gohma", "GV Waterfall Freestanding PoH"] {
+        for n in ["Song from Impa", "Kak Impas House Cow", "KF Shop Right Side Bottom Left", "Queen Gohma", "GV Waterfall Freestanding PoH"] {
             if let Some(l) = w.loc(n) {
                 assert!(!allowed(&d, &w, &p, item, l), "{n}");
             }
@@ -835,7 +835,8 @@ mod tests {
             let new: Byml = Byml::parse(&rf.zs.decompress(&std::fs::read(&p).unwrap()).unwrap()).unwrap();
             let olds: &[Node] = old.root.get("Actors").unwrap().as_arr().unwrap();
             let news: &[Node] = new.root.get("Actors").unwrap().as_arr().unwrap();
-            assert_eq!(olds.len(), news.len(), "{f}");
+            let added: usize = if f == crate::qol::dampe_race::GRAVE { 2 } else { 0 };
+            assert_eq!(olds.len() + added, news.len(), "{f}");
             for (a, b) in olds.iter().zip(news) {
                 let h: u64 = hash_of(a).unwrap_or(0);
                 if text(a, "Gyaml") == TOKEN {

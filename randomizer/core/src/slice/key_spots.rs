@@ -16,7 +16,7 @@ pub const REFUSED: [&str; 2] = ["in_game_first", "not_for_placement"];
 pub const AMMO: &str = "--ammo";
 pub const SHIELDS: [(&str, &str); 2] = [("Deku Shield", "Obj_Shield_Deku"), ("Hylian Shield", "Obj_Shield_Hylian")];
 pub const LOST: &str = "A shuffled pot, crate, flying pot, beehive, rock or grass tuft gives its item once and stays used in the save from the moment it breaks. An item you do not pick up is lost, also when it falls into a pit or lands out of reach, and a lost key item can make the seed unbeatable. Save before breaking holders that may hold key items. Experimental, untested in the game.";
-pub const NOTE: &str = "Key items can sit at shuffled pickup spots. Every item whose pickup pack is built can lie on the ground, sit in a pot, a crate, a flying pot or a beehive, under a rock, in a grass tuft or at a Gold Skulltula, the seed build writes those packs into the mod. Upgrade tiers at these spots always go low to high in the order the player can reach them, and nut and stick capacity there is always the top tier. A spot that exists once per age only takes items that do no harm when found twice, such as rupees, hearts, ammo and gear that a second copy does not change.";
+pub const NOTE: &str = "Key items can sit at shuffled pickup spots. Every item whose pickup pack is built can lie on the ground, sit in a pot, a crate, a flying pot or a beehive, under a rock, in a grass tuft or at a Gold Skulltula, the seed build writes those packs into the mod. An upgrade picked up at these spots gives the next tier you do not have yet, whatever tier its model shows, and the get window names the tier you get (untested in the game). A spot that exists once per age only takes items that do no harm when found twice, such as rupees, hearts, ammo and gear that a second copy does not change.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Spot {
@@ -99,8 +99,6 @@ fn picks() -> &'static BM<String, Pick> {
 
 pub const DUNGEON_PREFIX: &str = "Obj_OOTRR_";
 
-/// The pickup a dungeon item stands as: one actor per kind and dungeon (its pouch item is the
-/// game's shared one), so the get can tell which dungeon it credits (crate::debug_names::key_credits).
 pub fn dungeon_pick(d: &Data, item: &str) -> Option<Pick> {
     let i: &Item = d.item(item)?;
     let dungeon: &str = i.dungeon.as_deref().and_then(crate::dungeon_grant::struct_of)?;
@@ -182,6 +180,9 @@ pub fn placeable(d: &Data, item: &str, at: Spot) -> bool {
 }
 
 fn judge(d: &Data, item: &str, at: Spot) -> bool {
+    if at != Spot::Skull && crate::dungeon_packs::of(d, item).is_some() {
+        return true;
+    }
     if let Some(p) = dungeon_pick(d, item) {
         return at == Spot::Free || touch(p).kit_spec().is_ok();
     }
@@ -199,10 +200,10 @@ pub fn top_only(d: &Data, item: &str) -> bool {
 }
 
 pub fn resolve(d: &Data, item: &str, tier: Option<&str>) -> Res<Pick> {
-    if let Some(p) = dungeon_pick(d, item) {
-        return Ok(p);
-    }
     let i: &Item = d.item(item).ok_or_else(|| E::Msg(format!("unknown item {item}")))?;
+    if let Some(p) = crate::dungeon_packs::of_item(i) {
+        return Ok(p.pick());
+    }
     let content: String = match (tier, family(i)) {
         (Some(t), _) => t.to_string(),
         (None, Some(f)) if TOP_ONLY.contains(&f) => i.tiers.last().cloned().unwrap_or_default(),
@@ -391,14 +392,15 @@ mod tests {
         }
         assert!(placeable(&d, "Ocarina", Spot::Free) && placeable(&d, "Ocarina", Spot::Skull));
         assert!(!placeable(&d, "Milk", Spot::Free));
-        // Dungeon items stand as one pickup per kind and dungeon, pressed on the ground and touched as a kit.
         for at in [Spot::Free, Spot::Pot, Spot::Skull] {
             assert!(placeable(&d, "Small Key (Forest Temple)", at), "{at:?}");
         }
         let key: Pick = resolve(&d, "Small Key (Forest Temple)", None).unwrap();
-        assert_eq!(key.pack, format!("{DUNGEON_PREFIX}SmallKey_ForestTemple"));
-        assert!(key.args.iter().any(|a| a == "--press"));
-        assert!(!resolve_kit(&d, "Small Key (Forest Temple)", None).unwrap().args.iter().any(|a| a == "--press"));
+        assert_eq!(key.pack, "Obj_SmallKey_ForestTemple");
+        assert!(key.args.iter().any(|a| a == "--own"));
+        let kit: Pick = resolve_kit(&d, "Small Key (Forest Temple)", None).unwrap();
+        assert_eq!(kit.pack, format!("{DUNGEON_PREFIX}SmallKey_ForestTemple"));
+        assert!(!kit.args.iter().any(|a| a == "--press"));
         assert!(!placeable(&d, "Rupees (5)", Spot::Free));
         assert!(!placeable(&d, "Bunny Hood", Spot::Free));
         assert!(placeable(&d, "Deku Nut Capacity", Spot::Pot));

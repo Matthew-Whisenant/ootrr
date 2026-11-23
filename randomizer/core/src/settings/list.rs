@@ -485,7 +485,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::number(35, "starting_hearts", "starting", "Starting hearts", 3, 1, 20)
-            .tip("How many hearts you begin with. Values other than 3 adjust the shuffled heart items to compensate."),
+            .tip("How many hearts you begin with. Values other than 3 adjust the shuffled heart items to compensate. Starting with 20 hearts requires all heart rewards to be shuffled, including boss Heart Containers. Enable One time scrub sales, Treasure Chest Game reward, and Zora's River frog bug game Heart Piece. Freestanding Pieces of Heart are already shuffled even when Freestanding items is Off."),
     );
     s.push(
         Setting::choice(156, "heart_pool", "starting", "Heart pool adjustment", "random")
@@ -536,7 +536,7 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::toggle(93, crate::flow_extra::frogs::SONGS_SETTING, "shuffle", "Zora's River frog songs", false)
-            .tip("The frogs in Zora's River give one shuffled item the first time you play each of Zelda's Lullaby, Epona's Song, Saria's Song, the Sun's Song and the Song of Time to them, in place of the rupees. The Song of Storms Heart Piece is a check of its own as before.")
+            .tip("The frogs in Zora's River give one shuffled item the first time you play each of Zelda's Lullaby, Epona's Song, Saria's Song, the Sun's Song and the Song of Time to them, in place of the rupees. The separately mapped ZR Frogs Ocarina Game reward is a check of its own.")
             .when("shuffle_rewards", "supported"),
     );
     s.push(

@@ -12,8 +12,8 @@ use crate::start_items::table::Strip;
 use crate::world::{LocId, Placement, World};
 
 pub const JUNK: &str = "Rupee (1)";
-const PIECES: [&str; 3] = ["Piece of Heart", "Piece of Heart (Out of Logic)", "Piece of Heart (Treasure Chest Game)"];
-const CONTAINER: &str = "Heart Container";
+pub(crate) const PIECES: [&str; 3] = ["Piece of Heart", "Piece of Heart (Out of Logic)", "Piece of Heart (Treasure Chest Game)"];
+pub(crate) const CONTAINER: &str = "Heart Container";
 const RUPEES: [&str; 5] = [JUNK, "Rupees (5)", "Rupees (20)", "Rupees (50)", "Rupees (200)"];
 
 pub fn heart_adjusted_item(item: &str) -> bool {

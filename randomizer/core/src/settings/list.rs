@@ -482,7 +482,15 @@ pub fn build() -> Schema {
     );
     s.push(
         Setting::number(35, "starting_hearts", "starting", "Starting hearts", 3, 1, 20)
-            .tip("How many heart containers you begin with. Any value other than 3 is written into the game start module."),
+            .tip("How many hearts you begin with. Values other than 3 adjust the shuffled heart items to compensate."),
+    );
+    s.push(
+        Setting::choice(156, "heart_pool", "starting", "Heart pool adjustment", "random")
+            .tip("How to compensate for starting with more or fewer than 3 hearts. Pieces are always adjusted in groups of four. If the preferred type runs out, the other type is used. Generation fails if the shuffled pool cannot cover the adjustment.")
+            .opt("random", "Random", "Choose a seeded mix of pieces and containers.")
+            .opt("pieces", "Pieces of Heart", "Prefer pieces, then use containers if necessary.")
+            .opt("containers", "Heart Containers", "Prefer containers, then use pieces if necessary.")
+            .dep("starting_hearts", super::model::Cond::IsNot(Value::Int(3))),
     );
     s.push(
         Setting::choice(38, "shuffle_rewards", "shuffle", "Story and NPC rewards", "supported")

@@ -1,6 +1,12 @@
 use crate::msbt::Tok;
 use crate::rng::Rng;
 
+pub const OLD_NAMES: [(&str, &str); 1] = [("Item_GlassTruth", "Lens of Truth")];
+
+pub fn old_name(fake: &str) -> Option<&'static str> {
+    OLD_NAMES.iter().find(|(a, _)| super::fake_name(a) == fake).map(|(_, n)| *n)
+}
+
 fn inner(c: &[char], i: usize) -> bool {
     i > 0 && i + 1 < c.len() && c[i - 1].is_alphabetic() && c[i].is_alphabetic() && c[i + 1].is_alphabetic()
 }

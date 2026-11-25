@@ -583,9 +583,11 @@ fn text(raw: &[u8], fakes: &[(String, String)], seed: &str, english: bool) -> Re
             if let Some(v) = m.raw(&format!("{look}{sfx}")).map(|x| x.to_vec()) {
                 m.add_raw(&own, v)?;
                 if sfx == "_Name" {
-                    let t: Vec<crate::msbt::Tok> = m.text(&own)?;
-                    let mut r: Rng = Rng::from_text(&format!("{seed}/{name}/typo"));
-                    m.set_tokens(&own, &typo::name(&t, &mut r))?;
+                    let t: Vec<crate::msbt::Tok> = match typo::old_name(name).filter(|_| english) {
+                        Some(n) => msbt::from_markup(n)?,
+                        None => typo::name(&m.text(&own)?, &mut Rng::from_text(&format!("{seed}/{name}/typo"))),
+                    };
+                    m.set_tokens(&own, &t)?;
                 }
             }
         }

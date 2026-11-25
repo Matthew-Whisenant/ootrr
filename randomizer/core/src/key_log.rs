@@ -60,7 +60,7 @@ pub const DUNGEONS: [Dungeon; 8] = [
     dg("ShadowTemple", "Shadow Temple", "Shadow Temple", true),
     dg("SpiritTemple", "Spirit Temple", "Spirit Temple", true),
     dg("BottomOfTheWell", "Bottom of the Well", "Bottom of the Well", false),
-    dg("GerudoTrainingGround", "Gerudo Training Ground", "Gerudo Training Ground", false),
+    dg("GerudoTrainingGround", "Gerudo Proving Grounds", "Gerudo Training Ground", false),
     dg("InsideGanonCastle", "Ganon's Castle", "Ganons Castle", true),
 ];
 

@@ -65,6 +65,7 @@ pub const NUM: u16 = 204;
 pub const COUNT_NUM: u16 = 205;
 /// The most Ice Traps a seed can ask for, for now.
 pub const MAX: i64 = 10;
+pub const DEFAULT: i64 = crate::slice::trap_chests::NAMES.len() as i64;
 const GROUND_KINDS: [&str; 4] = ["freestanding", "heart", "bossheart", "key"];
 const POUCH_MSG: &str = "ActorMsg/PouchContent.msbt";
 const CHILD: &str = "Player_Child";
@@ -867,7 +868,7 @@ mod tests {
         let sch = crate::settings::schema();
         let (on, count) = (sch.get(SETTING).unwrap(), sch.get(COUNT).unwrap());
         assert_eq!(on.default, Value::Bool(false));
-        assert_eq!((count.default.clone(), count.min, count.max), (Value::Int(MAX), 1, MAX));
+        assert_eq!((count.default.clone(), count.min, count.max), (Value::Int(DEFAULT), 1, MAX));
         assert_eq!(MAX, 10);
         let plain: Settings = Settings::default();
         assert!(!plain.flag(SETTING).unwrap());

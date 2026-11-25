@@ -1,8 +1,10 @@
 pub mod chest;
 pub mod fake;
 pub mod ground;
+pub mod keys;
 pub mod sensor;
 pub mod trigger;
+pub mod typo;
 
 use std::collections::BTreeMap as BM;
 use std::fs;
@@ -235,6 +237,7 @@ fn pool(d: &Data, seed: &SeedFile) -> Vec<String> {
             out.push(i.name.clone());
         }
     }
+    out.extend(keys::looks(d));
     out.retain(|n| d.item(n).is_some_and(|i| i.actor.is_some()));
     out
 }
@@ -291,6 +294,9 @@ fn tier_of(d: &Data, item: &str, held: usize) -> Option<(String, bool)> {
 }
 
 fn fits(d: &Data, place: Place, loc: &str, item: &str, actor: &str, tiered: bool) -> bool {
+    if keys::is_key(d, item) {
+        return matches!(place, Place::Shop(_));
+    }
     let tier: Option<&str> = tiered.then_some(actor);
     match place {
         Place::Chest => true,
@@ -328,7 +334,7 @@ fn looks(d: &Data, seed: &SeedFile, places: &BM<String, Place>) -> Res<BM<String
             names
                 .iter()
                 .filter(|n| !taken(n))
-                .filter_map(|n| tier_of(d, n, if late { held(n, here) } else { held(n, usize::MAX) }).map(|(a, t)| (n.clone(), a, t)))
+                .filter_map(|n| keys::actor(d, n).map(|a| (a, false)).or_else(|| tier_of(d, n, if late { held(n, here) } else { held(n, usize::MAX) })).map(|(a, t)| (n.clone(), a, t)))
                 .filter(|(n, a, t)| fits(d, *pl, loc, n, a, *t))
                 .collect()
         };
@@ -557,18 +563,30 @@ fn tables(c: &mut Ctx, fakes: &[(String, String)], ids: &BM<String, String>, gro
     Ok(out)
 }
 
-fn text(raw: &[u8], fakes: &[(String, String)]) -> Res<Vec<u8>> {
+fn text(raw: &[u8], fakes: &[(String, String)], seed: &str, english: bool) -> Res<Vec<u8>> {
     let mut es: Vec<Entry> = sarc::parse(raw)?;
     let b: Vec<u8> = sarc::get(&es, POUCH_MSG).ok_or(E::Format("a message archive has no PouchContent.msbt"))?.data.clone();
     let mut m: Msbt = msbt::parse(&b)?;
+    let places: Option<Msbt> = sarc::get(&es, crate::dungeon_text::PLACES).map(|e| msbt::parse(&e.data)).transpose()?;
     for (look, name) in fakes {
         for sfx in ["_Name", "_Caption", "_GetCaption"] {
             let own: String = format!("{name}{sfx}");
             if m.find(&own).is_some() {
                 continue;
             }
+            if let (true, Some(p), Some(pl)) = (sfx == "_Name", keys::pack_of(look), places.as_ref()) {
+                let mut r: Rng = Rng::from_text(&format!("{seed}/{name}/typo"));
+                let t: Vec<crate::msbt::Tok> = keys::name(&m, pl, p, english, &mut r)?;
+                m.put_tokens(&own, &t)?;
+                continue;
+            }
             if let Some(v) = m.raw(&format!("{look}{sfx}")).map(|x| x.to_vec()) {
                 m.add_raw(&own, v)?;
+                if sfx == "_Name" {
+                    let t: Vec<crate::msbt::Tok> = m.text(&own)?;
+                    let mut r: Rng = Rng::from_text(&format!("{seed}/{name}/typo"));
+                    m.set_tokens(&own, &typo::name(&t, &mut r))?;
+                }
             }
         }
         let shop: String = format!("{name}_ShopCaption");
@@ -653,7 +671,7 @@ fn shelf(raw: &[u8], shelf: &str, fake: &str) -> Res<Vec<u8>> {
     sarc::write(&es)
 }
 
-pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b: Built) -> Res<Built> {
+pub fn after(traps: &[Trap], seed: &str, romfs: &P, load: &P, mod_name: &str, host: Host, b: Built) -> Res<Built> {
     if traps.is_empty() {
         return Ok(b);
     }
@@ -707,11 +725,12 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     for (k, fake) in &kits {
         files.push(c.file(&pack_of(k), |r: &[u8]| shelf(r, k, fake))?);
     }
+    let info: Byml = c.rf.read_byml(ACTOR_INFO)?;
     let mut by_file: BM<String, BM<u64, chest::Swap>> = BM::new();
     for t in traps {
         let swap: chest::Swap = match t.place {
             Place::Chest => chest::Swap::Content(t.fake.clone()),
-            Place::Ground => chest::Swap::Actor(ground::name_for(&t.fake)),
+            Place::Ground => chest::Swap::Actor(ground::name_for(&t.fake), ground::lift(&d, &info, &t.look, &t.actor)),
             Place::Shop(_) | Place::Skull | Place::Holder | Place::Flow => continue,
         };
         let l = d.cat.by_name(&t.loc).ok_or_else(|| E::Msg(format!("{} is not in the location list", t.loc)))?;
@@ -805,7 +824,7 @@ pub fn after(traps: &[Trap], romfs: &P, load: &P, mod_name: &str, host: Host, b:
     files.push(c.plain(trigger::MAIN, trigger::watch)?);
     let named: Vec<(String, String)> = fakes.iter().map(|(look, name)| (ids.get(name).cloned().unwrap_or_else(|| look.clone()), name.clone())).collect();
     for l in crate::hints::languages(&c.rf)? {
-        files.push(c.file(&l, |r: &[u8]| text(r, &named))?);
+        files.push(c.file(&l, |r: &[u8]| text(r, &named, seed, crate::dungeon_text::is_english(&l)))?);
     }
     files.push(c.file(&pack_of(CHILD), child)?);
     files.push(c.file(crate::difficulty::elink::FILE, full_body)?);

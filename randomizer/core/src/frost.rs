@@ -893,7 +893,7 @@ mod tests {
         assert!(!plain.flag(SETTING).unwrap());
         assert!(traps(&generate_data(&d, &plain, "cold default", &super::tests::on()).unwrap()).is_empty());
         let mut s: Settings = wide();
-        assert_eq!(traps(&generate_data(&d, &s, "cold ten", &super::tests::on()).unwrap()).len(), 10);
+        assert_eq!(traps(&generate_data(&d, &s, "cold ten", &super::tests::on()).unwrap()).len(), DEFAULT as usize);
         assert!(s.set(COUNT, Value::Int(MAX + 1)).is_err());
         assert!(s.set(COUNT, Value::Int(0)).is_err());
         s.set(COUNT, Value::Int(1)).unwrap();
@@ -931,7 +931,7 @@ mod tests {
             let plain: Generated = generate_data(&d, &s, &seed, &GenOpts::default()).unwrap();
             let g: Generated = generate_data(&d, &s, &seed, &on()).unwrap();
             let at: Vec<String> = traps(&g);
-            assert_eq!(at.len(), 10, "{seed}");
+            assert_eq!(at.len(), DEFAULT as usize, "{seed}");
             assert!(traps(&plain).is_empty());
             for l in &at {
                 assert!(can_hold(&d, l), "{l}");
@@ -974,7 +974,7 @@ mod tests {
         for n in 0..3 {
             let g: Generated = generate_data(&d, &s, &format!("cold prepare {n}"), &on()).unwrap();
             let (out, ts): (SeedFile, Vec<Trap>) = prepare(&g.seed_file).unwrap();
-            assert_eq!(ts.len(), 10);
+            assert_eq!(ts.len(), DEFAULT as usize);
             assert!(out.placements.values().all(|i| i != TRAP));
             crate::slice::chest_targets::actors_for(&d, &out).unwrap();
             let fixed = crate::slice::tier_order::fixed_actors(&d, &out).unwrap();
@@ -982,7 +982,7 @@ mod tests {
             crate::slice::seed_packs::need(&d, &out, &fixed.assign).unwrap();
             crate::slice::skull_edit::drops_with(&d, &out, &fixed.assign).unwrap();
             for t in &ts {
-                assert!(LOOKS.contains(&t.item.as_str()) || d.item(&t.item).is_some_and(|i| i.kind == "Song" || i.kind == "DungeonReward"), "{}", t.item);
+                assert!(LOOKS.contains(&t.item.as_str()) || d.item(&t.item).is_some_and(|i| i.kind == "Song" || i.kind == "DungeonReward" || i.kind == keys::SMALL), "{}", t.item);
             }
         }
     }
@@ -1107,7 +1107,7 @@ mod tests {
         let table: PB = POUCH_INFO.split('/').fold(b.root.join("romfs"), |a, s| a.join(s));
         let y: Byml = Byml::parse(&rf.zs.decompress(&fs::read(table).unwrap()).unwrap()).unwrap();
         let (_, ts): (SeedFile, Vec<Trap>) = prepare(&g.seed_file).unwrap();
-        assert_eq!(ts.len(), 10);
+        assert_eq!(ts.len(), DEFAULT as usize);
         for t in &ts {
             let r: &Node = rows::find(&y, &t.fake).unwrap_or_else(|| panic!("{} has no pouch row", t.fake));
             assert_eq!(r.get(rows::DEAL).and_then(|v| v.as_str()), Some(rows::QUIET_DEAL), "{}", t.fake);

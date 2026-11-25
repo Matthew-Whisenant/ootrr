@@ -105,13 +105,15 @@ fn number_tag(name: &str) -> Res<String> {
 
 pub fn plan(d: &Data, seed: &SeedFile) -> Res<Plan> {
     let (w, pl): (World, Placement) = crate::slice::starts::rebuild(d, seed)?;
+    let away: Vec<(crate::gift_keys::Item, &'static str)> = crate::slice::data::extra_dungeon_items();
     let caps: Vec<u32> = DUNGEONS
         .iter()
         .map(|dn| {
-            let n: usize = match w.item(&format!("Small Key ({})", dn.logic)) {
+            let here: usize = match w.item(&format!("Small Key ({})", dn.logic)) {
                 Some(k) => w.real.iter().filter(|l| pl.get(**l) == Some(k)).count(),
                 None => 0,
             };
+            let n: usize = here + away.iter().filter(|(i, g)| *i == crate::gift_keys::Item::Small && *g == dn.data).count();
             u32::try_from(n).unwrap_or(u32::MAX)
         })
         .collect();

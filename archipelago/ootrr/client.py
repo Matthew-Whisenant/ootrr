@@ -236,6 +236,7 @@ class OOTRRContext(CommonContext):
 
 
 async def game_loop(ctx: OOTRRContext) -> None:
+    shown = None
     while not ctx.exit_event.is_set():
         try:
             msgs = await asyncio.to_thread(ctx.step)
@@ -244,6 +245,9 @@ async def game_loop(ctx: OOTRRContext) -> None:
         except Exception as e:
             logger.exception(e)
             ctx.status = f"Error: {e}"
+        if ctx.status != shown:
+            shown = ctx.status
+            logger.info(f"OOTRR: {shown}")
         await asyncio.sleep(POLL)
 
 

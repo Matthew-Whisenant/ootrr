@@ -80,6 +80,9 @@ fn reason(d: &Data, w: &World, p: &Plan, name: &str) -> Option<String> {
     let Some(l) = w.loc(name) else {
         return Some("location is not in the logic world".to_string());
     };
+    if crate::qol::dampe_race::RUPEE_CHESTS.contains(&name) {
+        return Some(crate::qol::dampe_race::RUPEE_WHY.to_string());
+    }
     if !p.remake && crate::slice::remake_chests::gated(name) {
         return Some(crate::slice::remake_chests::OFF.to_string());
     }

@@ -86,6 +86,9 @@ fn reason(d: &Data, w: &World, p: &Plan, name: &str) -> Option<String> {
     if !p.remake && crate::slice::held_chests::gated(name) {
         return Some(crate::slice::remake_chests::OFF.to_string());
     }
+    if !p.trap_chests && crate::slice::trap_chests::gated(name) {
+        return Some(crate::slice::trap_chests::OFF.to_string());
+    }
     if d.keeps_event(name) && !d.special(name) && d.vanilla_of(name).is_some_and(|v| d.family(v).is_some()) {
         return Some("it holds an upgrade item behind a story event".to_string());
     }

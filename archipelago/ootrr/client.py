@@ -18,6 +18,7 @@ ITEMS_HANDLING = 0b101
 PENDING = "OOTRR.AP.Pending"
 POLL = 1.0
 RETRY = 8.0
+NUDGE = 2.0
 TRIES = 5
 ASIDE = 60.0
 
@@ -62,8 +63,14 @@ class Deliverer:
     def next(self, keys: Sequence[str], state: Dict[str, Optional[bool]], now: float) -> Optional[str]:
         if state.get(PENDING):
             return None
-        if any(state.get(recv(k)) for k in keys):
-            return None
+        stuck = [k for k in keys if state.get(recv(k))]
+        if stuck:
+            k = stuck[0]
+            last = self.sent.get(k)
+            if last is not None and now - last[0] < NUDGE:
+                return None
+            self.sent[k] = (now, 0 if last is None else last[1])
+            return k
         for k in keys:
             if state.get(got(k)) is not False:
                 continue

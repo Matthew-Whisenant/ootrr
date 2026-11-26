@@ -105,3 +105,7 @@ pub mod teleport_sim;
 pub mod teleport_start;
 
 pub const TITLE_ID: &str = "0400486024DEC000";
+
+#[cfg(test)]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;

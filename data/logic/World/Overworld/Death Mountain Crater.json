@@ -101,7 +101,7 @@
         "locations": {
             "DMC Volcano Freestanding PoH": "
                 is_adult and
-                (here(can_plant_bean)))",
+                (here(can_plant_bean))",
             "Sheik in Crater": "is_adult"
         },
         "exits": {

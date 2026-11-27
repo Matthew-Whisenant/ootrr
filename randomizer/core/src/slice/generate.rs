@@ -137,7 +137,7 @@ fn item_name(w: &World, v: &Placement, l: LocId) -> String {
 
 type Steps = Vec<Vec<(String, String)>>;
 
-fn spoiler_text(w: &World, vanilla: &Placement, got: &Placement, pk: &Pick) -> Res<(String, Steps)> {
+fn spoiler_text(w: &World, vanilla: &Placement, got: &Placement, pk: &Pick, traps: &BM<String, String>) -> Res<(String, Steps)> {
     let sp: Spoiler = playthrough(w, got)?;
     let steps: Steps = sp
         .spheres
@@ -148,13 +148,10 @@ fn spoiler_text(w: &World, vanilla: &Placement, got: &Placement, pk: &Pick) -> R
     out.push_str(crate::spoiler::LEGEND);
     let _ = writeln!(out, "Randomized chests");
     for l in &pk.free {
-        let _ = writeln!(
-            out,
-            "  {}: {} (vanilla {})",
-            w.locs[*l].name,
-            crate::spoiler::shown(&item_name(w, got, *l)),
-            crate::spoiler::shown(&item_name(w, vanilla, *l))
-        );
+        let name: &str = &w.locs[*l].name;
+        let held: String = item_name(w, got, *l);
+        let item: &str = traps.get(name).map(|t| t.as_str()).unwrap_or_else(|| crate::spoiler::shown(&held));
+        let _ = writeln!(out, "  {name}: {item} (vanilla {})", crate::spoiler::shown(&item_name(w, vanilla, *l)));
     }
     let _ = writeln!(out, "Playthrough, {} required locations in {} spheres", sp.required.len(), sp.spheres.len());
     for (n, sphere) in sp.spheres.iter().enumerate() {
@@ -475,7 +472,8 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         crate::frost::sprinkle(d, s, seed, &mut seed_file, &p.excluded);
     }
     let (sp, spheres): (Option<String>, Steps) = if o.spoiler {
-        let (mut t, st): (String, Steps) = spoiler_text(&w, &vanilla, &got, &pk)?;
+        let traps: BM<String, String> = crate::frost::prepare(&seed_file)?.1.into_iter().map(|t| (t.loc, format!("Ice Trap (looks like {})", t.look))).collect();
+        let (mut t, st): (String, Steps) = spoiler_text(&w, &vanilla, &got, &pk, &traps)?;
         let fixed: BM<String, String> = if crate::slice::tier_fix::active(d, &w, &pk.free) {
             crate::slice::tier_fix::verdict(d, &w, &got, &pk.free)?.assign
         } else {
@@ -485,6 +483,12 @@ pub fn generate_data(d: &Data, s: &Settings, seed: &str, o: &GenOpts) -> Res<Gen
         t.push_str(&crate::slice::key_spots::spoiler(d, &w, &pk.free, &got, &fixed));
         if let Some(l) = &lay {
             t.push_str(&crate::shops::spoiler::text(l));
+        }
+        if !traps.is_empty() {
+            let _ = writeln!(t, "Ice Traps, {} placed", traps.len());
+            for (loc, item) in &traps {
+                let _ = writeln!(t, "  {loc}: {item}");
+            }
         }
         if let Some(l) = &gates {
             t.insert_str(0, &crate::entr::text::spoiler(l));

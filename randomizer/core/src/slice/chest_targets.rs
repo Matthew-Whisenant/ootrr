@@ -48,9 +48,6 @@ fn vanilla_actor(d: &Data, loc: &str) -> Res<String> {
         }
     }
     if let Some(l) = d.cat.by_name(loc) {
-        // A trap chest holds the trap chest actor itself, not an item. With Ice Traps on it
-        // adds its pool item (Rupees (5)) to the pool, and that copy is handed out as the
-        // item's own actor, or a chest that gets it would give Link a trap chest and freeze.
         if l.item == crate::slice::trap_chests::ACTOR {
             let item: &str = d.pool_item(loc).ok_or_else(|| E::Msg(format!("{loc} has no vanilla item")))?;
             return d.item(item).and_then(|i| i.actor.clone()).ok_or_else(|| E::Msg(format!("{item} has no remake item actor")));

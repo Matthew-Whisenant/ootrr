@@ -87,7 +87,6 @@ pub fn put_spoiler(root: &PB, text: Option<&str>) -> std::io::Result<()> {
 
 pub const SEED_FILE: &str = "Seed.ootrr";
 
-/// The seed file names every placement, so it goes beside the spoiler log and only with it.
 pub fn put_seed(root: &PB, seed: Option<&SeedFile>) -> std::io::Result<()> {
     let p: PB = root.join(SEED_FILE);
     match seed {

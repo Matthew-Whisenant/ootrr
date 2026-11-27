@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - nightly
   pull_request:
     paths:
       - "site/**"
@@ -33,6 +34,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      # The nightly branch's site shows a nightly version, as the nightly builds do.
+      - name: Nightly version
+        if: github.ref == 'refs/heads/nightly'
+        run: |
+          base="$(python3 -I tools/nightly_version.py next "$(date -u +%Y%m%d)")"
+          version="${base}.g${GITHUB_SHA:0:7}"
+          python3 -I tools/nightly_version.py set "$version"
+          echo "Version $version" >> "$GITHUB_STEP_SUMMARY"
       - name: Build
         run: |
           export RUSTFLAGS="--remap-path-prefix=$HOME=user --remap-path-prefix=$GITHUB_WORKSPACE=ootrr"
@@ -46,7 +55,9 @@ jobs:
       - name: Parity with the native build
         run: node site/test/parity.mjs --exe target/release/ootrr --wasm target/wasm32-wasip1/release/ootrr.wasm
       - name: Site
-        run: node site/make.mjs
+        run: |
+          node site/make.mjs
+          echo "$GITHUB_SHA" > site/dist/built-from.txt
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'pull_request'
         with:
@@ -56,8 +67,9 @@ jobs:
 
   # The built site is committed to the gh-pages branch, and GitHub Pages serves
   # that branch (Settings > Pages > Deploy from a branch > gh-pages, / (root)).
-  # Each deploy replaces the branch with one commit, so old wasm builds do not
-  # pile up in the history.
+  # main is the site's root and nightly its nightly/ folder; a deploy replaces
+  # its own part and keeps the other. Each deploy replaces the branch with one
+  # commit, so old wasm builds do not pile up in the history.
   deploy:
     if: github.event_name != 'pull_request'
     needs: build
@@ -76,11 +88,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cd site
-          touch .nojekyll
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          mkdir pub
+          cd pub
           git init -q -b gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch -q --depth 1 "$url" gh-pages; then
+            git read-tree FETCH_HEAD
+            git checkout-index -a -f
+          fi
+          if [ "$GITHUB_REF_NAME" = nightly ]; then
+            rm -rf nightly
+            cp -r ../site nightly
+          else
+            find . -mindepth 1 -maxdepth 1 ! -name .git ! -name nightly -exec rm -rf {} +
+            cp -r ../site/. .
+          fi
+          touch .nojekyll
           git add -A
-          git commit -q -m "Site from ${GITHUB_SHA}"
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+          git commit -q -m "Site from ${GITHUB_REF_NAME} ${GITHUB_SHA}"
+          git push -f "$url" gh-pages

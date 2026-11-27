@@ -1058,12 +1058,17 @@ mod tests {
     }
 
     #[test]
-    fn an_open_kakariko_only_places_giveable_items_at_the_skipped_checks() {
+    fn a_skipped_zelda_meeting_only_places_giveable_items_at_the_skipped_checks() {
         let d: Data = Data::load().unwrap();
-        let s: Settings = with(&[("shuffle_rewards", "supported"), ("shuffle_songs", "anywhere"), ("open_forest", "open"), ("open_kakariko", "open")]);
+        let mut s: Settings = with(&[("shuffle_rewards", "supported"), ("shuffle_songs", "anywhere"), ("open_forest", "open")]);
+        s.set(crate::open_world::zelda::SKIP, Value::Bool(true)).unwrap();
         for n in 0..3 {
             let g: Generated = generate_data(&d, &s, &format!("kak {n}"), &GenOpts::default()).unwrap();
-            assert!(g.report.contains("Kakariko gate starts open"));
+            assert!(g.report.contains("The Zelda meeting is skipped"));
+            // The letter and the egg have nothing left to open and are out of the pool.
+            for item in ["Zeldas Letter", "Weird Egg", "Chicken"] {
+                assert!(!g.seed_file.placements.values().any(|v| v == item), "seed kak {n}: {item} is still placed");
+            }
             let p: Plan = plan(&s).unwrap();
             let locs: Vec<&str> = crate::slice::edit::skipped_locations(&p);
             assert_eq!(locs.len(), 2);
@@ -1080,18 +1085,25 @@ mod tests {
                 assert!(!d.item(item).is_some_and(|i| i.adv), "seed kak {n}: the egg check holds {item}");
             }
         }
-        let off: Settings = with(&[("open_kakariko", "closed")]);
+        let off: Settings = with(&[("open_kakariko", "open")]);
         let g: Generated = generate_data(&d, &off, "kak off", &GenOpts::default()).unwrap();
-        assert!(!g.report.contains("Kakariko gate starts open"));
+        // The gate-only setting writes no story state.
+        assert!(g.report.contains("Kakariko gate starts open") && !g.report.contains("The Zelda meeting is skipped"));
         let p: Plan = plan(&off).unwrap();
         assert!(crate::slice::edit::skipped_locations(&p).is_empty());
-        // Only flags remain: the intro skip's first-visit scenes and the always-on child Temple
-        // of Time skip (crate::story_skip::temple). No quest step, state or item.
+        // Only flags remain, and the owl's amiibo pouch: the intro skip's first-visit scenes, the
+        // always-on child Temple of Time skip (crate::story_skip::temple) and the always-on Kokiri
+        // intro, field owl and clock (crate::open_world::zelda::new_game).
         let off_state: crate::start_state::Ops = crate::slice::edit::start_state(&d, &g.seed_file, &p).unwrap();
-        assert!(off_state.steps.is_empty() && off_state.enums.is_empty() && off_state.items.is_empty());
+        // The skipped first field owl's castle quest step is the only quest write.
+        let owl: Vec<(String, String)> = crate::open_world::zelda::OWL_STEPS.iter().map(|(c, s)| (c.to_string(), s.to_string())).collect();
+        assert!(off_state.steps == owl && off_state.enums.is_empty() && off_state.bgm);
+        assert_eq!(off_state.items, vec![crate::open_world::zelda::OWL_ITEM.to_string()]);
         let seen: usize = off_state.flags.iter().filter(|(n, _)| n.starts_with(crate::start_state::VISIT)).count();
-        assert_eq!(seen, 13);
-        assert_eq!(off_state.flags.len(), crate::start_state::FIRST_VISIT.len() + crate::story_skip::TEMPLE_FLAGS.len() + crate::story_skip::OWL_FLAGS.len() + crate::key_log::start_ops().flags.len() + seen);
+        // Hyrule Field's visit is one of the always-on field intro flags; the other 14 come from
+        // the played first-visit scenes.
+        assert_eq!(seen, 15);
+        assert_eq!(off_state.flags.len(), crate::start_state::FIRST_VISIT.len() + crate::story_skip::TEMPLE_FLAGS.len() + crate::story_skip::OWL_FLAGS.len() + crate::key_log::start_ops().flags.len() + crate::open_world::zelda::new_game(true).flags.len() + seen - 1);
         // Zelda's Letter is in the pool and may go anywhere: a skipped check hands out what the
         // seed put there, an unshuffled one its vanilla item.
         let mut bare: SeedFile = g.seed_file.clone();

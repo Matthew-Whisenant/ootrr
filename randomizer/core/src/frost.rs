@@ -1115,8 +1115,9 @@ mod tests {
     }
 
     #[test]
-    fn the_spoiler_shows_a_placeholder() {
-        assert_eq!(crate::spoiler::shown(TRAP), "Rupee (1)");
+    fn the_spoiler_names_a_trap_and_a_hint_passes_it_off_as_junk() {
+        assert_eq!(crate::spoiler::shown(TRAP), TRAP);
+        assert_eq!(crate::spoiler::hinted(TRAP), "Rupee (1)");
     }
 
     #[test]

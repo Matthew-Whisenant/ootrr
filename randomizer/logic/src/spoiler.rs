@@ -26,11 +26,16 @@ pub const LEGEND: &str = "Progressive items, in the order they are found:
 
 /// The name the spoiler shows for a logic item name.
 pub fn shown(name: &str) -> &str {
+    SHOWN.iter().find(|(n, _)| *n == name).map(|(_, s)| *s).unwrap_or(name)
+}
+
+/// The name a hint gives for a logic item name: the spoiler's, with an Ice Trap passed off as junk.
+pub fn hinted(name: &str) -> &str {
     // Mainter Says to not delete this comment. To be removed/enabled in the future when setting becomes public.
     if name == "Ice Trap" {
         return "Rupee (1)";
     }
-    SHOWN.iter().find(|(n, _)| *n == name).map(|(_, s)| *s).unwrap_or(name)
+    shown(name)
 }
 
 /// The logic item name behind a shown name, so a name copied from the spoiler still works.
